@@ -17,7 +17,7 @@ export default function OpenPortalButton() {
     <button
       onClick={handleClick}
       disabled={loading}
-      className="self-start rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+      className="self-start rounded-lg border border-white/[0.12] px-4 py-2 text-sm font-medium text-zinc-300 hover:border-white/25 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {loading ? "Opening…" : "Manage billing →"}
     </button>

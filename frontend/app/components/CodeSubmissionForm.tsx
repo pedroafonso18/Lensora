@@ -43,28 +43,26 @@ export default function CodeSubmissionForm({ onSubmit, loading }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Code */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-gray-700">
+          <label className="text-xs font-mono tracking-[0.12em] uppercase text-zinc-500">
             C++ Code
           </label>
           <span
-            className={`text-xs ${
-              codeBytes > MAX_CODE_BYTES * 0.8
-                ? "text-amber-500"
-                : "text-gray-400"
+            className={`text-xs font-mono ${
+              codeBytes > MAX_CODE_BYTES * 0.8 ? "text-amber-400" : "text-zinc-600"
             }`}
           >
             {(codeBytes / 1024).toFixed(1)} KB / 1024 KB
           </span>
         </div>
         <textarea
-          className={`h-64 rounded-lg border bg-gray-50 p-3 font-mono text-sm text-gray-900 resize-y focus:outline-none focus:ring-2 ${
+          className={`h-72 rounded-lg border bg-zinc-950 p-4 font-mono text-sm text-zinc-200 resize-y focus:outline-none focus:ring-1 placeholder:text-zinc-700 transition-colors ${
             codeError
-              ? "border-red-400 focus:ring-red-300"
-              : "border-gray-300 focus:ring-indigo-300"
+              ? "border-red-500/40 focus:ring-red-500/40"
+              : "border-white/[0.08] focus:ring-indigo-500/40 focus:border-indigo-500/40"
           }`}
           placeholder="Paste your C++ code here..."
           value={code}
@@ -72,59 +70,57 @@ export default function CodeSubmissionForm({ onSubmit, loading }: Props) {
           spellCheck={false}
         />
         {codeError && (
-          <p className="text-xs text-red-500">{codeError}</p>
+          <p className="text-xs text-red-400">{codeError}</p>
         )}
       </div>
 
       {/* Explanation */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-gray-700">
+          <label className="text-xs font-mono tracking-[0.12em] uppercase text-zinc-500">
             Explanation
           </label>
           <span
-            className={`text-xs ${
+            className={`text-xs font-mono ${
               explanationChars > MAX_EXPLANATION_CHARS * 0.9
-                ? "text-amber-500"
-                : "text-gray-400"
+                ? "text-amber-400"
+                : "text-zinc-600"
             }`}
           >
             {explanationChars} / {MAX_EXPLANATION_CHARS}
           </span>
         </div>
         <textarea
-          className={`h-32 rounded-lg border bg-gray-50 p-3 text-sm text-gray-900 resize-y focus:outline-none focus:ring-2 ${
+          className={`h-28 rounded-lg border bg-zinc-950 p-4 text-sm text-zinc-200 resize-y focus:outline-none focus:ring-1 placeholder:text-zinc-700 transition-colors ${
             explanationError
-              ? "border-red-400 focus:ring-red-300"
-              : "border-gray-300 focus:ring-indigo-300"
+              ? "border-red-500/40 focus:ring-red-500/40"
+              : "border-white/[0.08] focus:ring-indigo-500/40 focus:border-indigo-500/40"
           }`}
           placeholder="Describe what this code is supposed to do..."
           value={explanation}
           onChange={(e) => setExplanation(e.target.value)}
         />
         {explanationError && (
-          <p className="text-xs text-red-500">{explanationError}</p>
+          <p className="text-xs text-red-400">{explanationError}</p>
         )}
       </div>
 
-      {/* Language selector — MVP: C++ only */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-semibold text-gray-700">Language</label>
-        <select
-          className="w-40 rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-          value={language}
-          disabled
-        >
-          <option value="cpp">C++</option>
-        </select>
+      {/* Language badge */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono tracking-[0.12em] uppercase text-zinc-500">
+          Language
+        </span>
+        <span className="rounded border border-white/[0.08] px-2.5 py-1 text-xs font-mono text-zinc-400">
+          C++
+        </span>
       </div>
 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="self-start rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {loading ? "Reviewing…" : "Review Code"}
+        {loading ? "Analyzing…" : "Analyze code →"}
       </button>
     </form>
   );

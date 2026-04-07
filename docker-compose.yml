@@ -1,0 +1,53 @@
+version: "3.9"
+
+# ── Lensora local full-stack dev ───────────────────────────────────
+#
+# Usage:
+#   cp .env.example .env           # fill in API_KEY and CLERK_JWKS_URL
+#   cp frontend/.env.local.example frontend/.env.local  # fill in all keys
+#   docker compose up --build
+#
+# Backend: http://localhost:3000
+# Frontend: http://localhost:4000
+#
+# For Stripe webhooks in dev, run separately:
+#   stripe listen --forward-to localhost:4000/api/stripe/webhook
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID: ${NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID}
+        NEXT_PUBLIC_STRIPE_PRO_PRICE_ID: ${NEXT_PUBLIC_STRIPE_PRO_PRICE_ID}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:4000}
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./frontend/.env.local
+    environment:
+      BACKEND_URL: "http://backend:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

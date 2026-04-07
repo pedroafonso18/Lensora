@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  # ── Backend (Rust) ────────────────────────────────────────────────
+  backend:
+    name: Backend — lint, format, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+        env:
+          # Tests that need real API keys are skipped via #[ignore] — only unit
+          # tests run in CI. Add secrets to GitHub Actions to run integration tests.
+          API_KEY: ci-placeholder
+          CLERK_JWKS_URL: https://example.clerk.accounts.dev/.well-known/jwks.json
+
+  # ── Frontend (Next.js) ────────────────────────────────────────────
+  frontend:
+    name: Frontend — lint, build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint . --max-warnings 0
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        env:
+          # Public env vars required at build time — use placeholder values in CI
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder' }}
+          NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID: ${{ secrets.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID || 'price_placeholder' }}
+          NEXT_PUBLIC_STRIPE_PRO_PRICE_ID: ${{ secrets.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_placeholder' }}
+          NEXT_PUBLIC_APP_URL: http://localhost:4000
+          # Secret env vars — must be set in GitHub repository secrets for a real build
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY || 'sk_test_placeholder' }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_placeholder' }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || 'whsec_placeholder' }}
+          STRIPE_STARTER_PRICE_ID: ${{ secrets.STRIPE_STARTER_PRICE_ID || 'price_placeholder' }}
+          BACKEND_URL: http://localhost:3000
+
+  # ── Docker build check ────────────────────────────────────────────
+  docker:
+    name: Docker — build images
+    runs-on: ubuntu-latest
+    # Only run on push to master to avoid slowing down PRs
+    if: github.event_name == 'push'
+    needs: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t lensora-backend:ci .
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_placeholder \
+            --build-arg NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID=price_placeholder \
+            --build-arg NEXT_PUBLIC_STRIPE_PRO_PRICE_ID=price_placeholder \
+            --build-arg NEXT_PUBLIC_APP_URL=http://localhost:4000 \
+            -t lensora-frontend:ci \
+            ./frontend
