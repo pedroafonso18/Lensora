@@ -15,12 +15,18 @@ async fn main() {
     let api_key = std::env::var("API_KEY")
         .expect("API_KEY must be set in .env");
 
+    // Clerk JWKS endpoint — find it at:
+    // Clerk Dashboard → API Keys → Advanced → JWT public key / JWKS endpoint
+    // Format: https://<frontend-api>.clerk.accounts.dev/.well-known/jwks.json
+    let clerk_jwks_url = std::env::var("CLERK_JWKS_URL")
+        .expect("CLERK_JWKS_URL must be set in .env");
+
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "3000".to_string());
 
     let addr = format!("0.0.0.0:{port}");
 
-    let state = api::AppState { api_key };
+    let state = api::AppState { api_key, clerk_jwks_url };
 
     // CorsLayer::permissive() allows all origins. Restrict this in production.
     let app = Router::new()

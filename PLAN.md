@@ -1,309 +1,315 @@
 # Plan: Lensora Code Review SAAS Platform
 
 ## TL;DR
-Build a code review SAAS platform where users upload C++ code with explanations, which gets analyzed by 5 specialized agents (Style, Functionality, Bug, Security, Consistency). The first 4 agents run in parallel, then a Consistency (Meta) Agent reviews their outputs for contradictions and conflicting recommendations. The MVP focuses on internal agent functions within Rust/Axum backend, React frontend for code submission, and stateless operation. Security is architected from the start with authentication, input validation, and secure code handling. Phase 2 adds Git integration and multi-language support.
+Build a code review SaaS platform where users upload C++ code with explanations, which gets analyzed by 5 specialized agents (Style, Functionality, Bug, Security, Consistency). The first 4 agents run in parallel, then a Consistency (Meta) Agent reviews their outputs for contradictions and conflicting recommendations. Authentication is handled by Clerk, payments by Stripe (Starter / Professional tiers, 7-day trial with CC). The MVP focuses on the Rust/Axum backend, a Next.js App Router frontend with a landing page and protected review app, and stateless operation. Phase 3 handles security hardening, Phase 4 testing and deployment.
 
 ---
 
-## **PHASE 1: Backend Foundation & Agent Architecture**
+## **PHASE 1: Backend Foundation & Agent Architecture** ✓
 
 ### Steps (Backend)
-1. **Define Agent Framework Architecture**
-   - Create `src/agents/mod.rs` module structure with traits for agent interface
-   - Define `Agent` trait with `review()` method returning structured results
-	- Create agent result types: `StyleReview`, `FunctionalityReview`, `BugReview`, `SecurityReview`, `ConsistencyReview`
-   - Dependencies: None (foundational)
-
-2. **Implement Style Agent** (`src/agents/style.rs`)
-   - Review for Clean Code principles: naming conventions, function length, DRY violations
-   - Review for SOLID principles (Single Responsibility, Open/Closed, Liskov, Interface, Dependency Inversion)
-   - C++ specific: check include guards, header/implementation split, const correctness, modern C++ patterns
-   - Dependencies: Design from Step 1
-
-3. **Implement Functionality Agent** (`src/agents/functionality.rs`)
-   - Parse C++ code structure (functions, classes, logic flow)
-   - Check for side effects in pure functions
-   - Validate logic against user-provided explanation
-   - Verify return values and parameter handling
-   - Dependencies: Design from Step 1
-
-4. **Implement Bug Agent** (`src/agents/bug.rs`)
-   - Check for common C++ pitfalls: memory leaks, null pointer dereferences, off-by-one errors
-   - Detect uninitialized variables, use-after-free patterns
-   - Check for race conditions in multi-threaded code
-   - Detect resource acquisition issues (RAII violations)
-   - Dependencies: Design from Step 1
-
-5. **Implement Security Agent** (`src/agents/security.rs`)
-   - Check for buffer overflows, format string vulnerabilities, SQL injection patterns
-   - Validate input sanitization, output escaping
-   - Check for hardcoded secrets, credentials, API keys
-   - Review authentication/authorization logic if present
-   - Check for cryptographic misuse patterns
-   - Verify secure random number generation
-   - Dependencies: Design from Step 1
-
-6. **Implement Consistency Agent (Meta Agent)** (`src/agents/consistency.rs`)
-	- Consume outputs from Style, Functionality, Bug, and Security agents
-	- Detect contradictory findings (for example: one agent approves a pattern another flags as risky)
-	- Detect conflicting severity assessments across agents
-	- Produce a normalized "conflict report" with final cross-agent notes
-	- Dependencies: Results from Steps 2-5
-
-7. **Create Review Orchestrator** (`src/agents/orchestrator.rs`)
-   - Single entry point: `run_parallel_reviews(code: &str, explanation: &str) -> ReviewResult`
-	- Execute Style, Functionality, Bug, and Security agents in parallel using Tokio tasks
-	- Execute Consistency Agent after the first 4 complete
-	- Aggregate results with timestamps and execution metadata
-	- Dependencies: Agents from Steps 2-6
-
-8. **Build HTTP API Layer** (`src/api/mod.rs`)
-   - Create `/api/review` POST endpoint
-   - Request: `{ code: String, explanation: String, language: String }`
-	- Response: `{ style: StyleReview, functionality: FunctionalityReview, bug: BugReview, security: SecurityReview, consistency: ConsistencyReview, timestamp: DateTime }`
-   - Add CORS headers for Next.js frontend
-	- Dependencies: Orchestrator from Step 7
-
-9. **Implement Input Validation & Sanitization** (`src/security/validation.rs`)
-   - Validate code size limits (prevent DoS: max 1MB per request)
-   - Validate explanation length (max 5000 chars)
-   - Whitelist allowed language identifiers (start with "cpp")
-   - Sanitize all inputs before passing to agents
-   - Log suspicious inputs
-   - Dependencies: None (security first)
-
-10. **Add Structured Logging** (`src/logging.rs`)
-   - Log all review requests with code size, user origin
-   - Log review results and any errors
-   - Track agent execution times for performance monitoring
-   - Dependencies: None (can be added anytime)
-
-11. **Update main.rs & Configuration**
-	- Load `.env` for configuration (port, log level, request size limits)
-	- Initialize Axum router with `/api/review` endpoint
-	- Add health check endpoint `/health`
-	- Dependencies: All above (Step 11 integrates everything)
-
-**Parallel Execution**: Steps 2-5 (core agents) run in parallel; Step 6 depends on completion of 2-5; Step 7 depends on 2-6; Steps 8-10 can run in parallel with previous but must complete before Step 11.
+1. **Define Agent Framework Architecture** (`src/agents/mod.rs`) ✓
+2. **Implement Style Agent** (`src/agents/style.rs`) ✓
+3. **Implement Functionality Agent** (`src/agents/functionality.rs`) ✓
+4. **Implement Bug Agent** (`src/agents/bug.rs`) ✓
+5. **Implement Security Agent** (`src/agents/security.rs`) ✓
+6. **Implement Consistency Agent** (`src/agents/consistency.rs`) ✓
+7. **Create Review Orchestrator** (`src/agents/orchestrator.rs`) ✓
+8. **Build HTTP API Layer** (`src/api/mod.rs`) ✓
+9. **Implement Input Validation & Sanitization** (`src/security/validation.rs`) ✓
+10. **Add Structured Logging** (`src/logging.rs`) ✓
+11. **Update main.rs & Configuration** ✓
 
 ---
 
-## **PHASE 2: Frontend & User Interface**
+## **PHASE 2: Frontend & User Interface** ✓
 
 ### Steps (Frontend)
-12. **Set up Next.js Project Structure** (`pages/`)
-	- Initialize Next.js 14+ with React
-	- Configure API routes to proxy backend requests
-	- Create TypeScript types matching Rust API responses
-	- Dependencies: None (parallel to Phase 1 but needs Phase 1 API ready before integration)
+12. **Set up Next.js Project Structure** (`frontend/`) ✓
+    - Next.js App Router, TypeScript, Tailwind CSS
+    - TypeScript types matching Rust API responses (`frontend/lib/types.ts`)
+    - Proxy API route hiding backend from browser (`frontend/app/api/review/route.ts`)
 
-13. **Build Code Submission Form Component** (`pages/components/CodeSubmissionForm.tsx`)
-	- Input fields: code textarea, explanation textarea, language selector
-	- Character counters for both inputs
-	- Language selector (MVP: C++ only)
-	- Real-time validation feedback
-	- Dependencies: None (independent component)
+13. **Build Code Submission Form Component** (`frontend/app/components/CodeSubmissionForm.tsx`) ✓
+    - Code textarea with byte counter, explanation textarea with char counter
+    - Real-time validation feedback, language selector (C++ only)
 
-14. **Build Results Display Component** (`pages/components/ReviewResults.tsx`)
-	- Tab interface or accordion for 5 agents
-	- Display findings in organized format: severity levels, line numbers (if available)
-	- Show execution timestamps and agent execution times
-	- Copy-to-clipboard functionality for results
-	- Dependencies: None (independent component)
+14. **Build Results Display Component** (`frontend/app/components/ReviewResults.tsx`) ✓
+    - Tab interface for 5 agents with finding counts per tab
+    - Severity badges, line numbers, recommendations, copy-to-JSON
 
-15. **Create Main Review Page** (`pages/review/index.tsx`)
-	- Integrate CodeSubmissionForm and ReviewResults
-	- Manage state for code, results, loading state, errors
-	- Show loading spinner during review processing
-	- Handle API calls to `/api/review`
-	- Dependencies: Components from Steps 13-14
+15. **Create Main Review Page** (`frontend/app/page.tsx`) ✓
+    - State machine: idle → loading → success/error
+    - Loading spinner, error messages, results display
 
-16. **Add Error Handling & User Feedback**
-	- Display user-friendly error messages
-	- Handle network errors, server errors, timeout scenarios
-	- Show rate limiting feedback if applicable
-	- Dependencies: Step 15
-
-**Parallel Execution**: Steps 12-14 can run in parallel; Step 15 depends on all of them; Step 16 depends on Step 15.
+16. **Add Error Handling & User Feedback** ✓
+    - Network errors, backend errors, validation failures all handled with user-friendly messages
 
 ---
 
-## **PHASE 3: Security & Authentication Hardening** (from start, enhance as needed)
+## **PHASE 2B: Visual Identity, Auth & Monetization**
 
-### Steps (Security Implementation)
-17. **Implement Authentication** (`src/auth/mod.rs`)
-	- Add JWT token issuance and validation
-	- Create `/auth/signup` and `/auth/login` endpoints
-	- Implement middleware to protect `/api/review` endpoint
-	- Use bcrypt for password hashing (add `bcrypt` crate)
-	- Dependencies: Phase 1 complete
+### Overview
+- **Auth**: Clerk (managed — no custom JWT/bcrypt needed)
+- **Payments**: Stripe — Starter (rate-limited) and Professional (unlimited), 7-day trial with CC required
+- **Routing**: `/` landing page, `/review` protected app, `/sign-in`, `/sign-up`, `/pricing`, `/account`
+- **Clerk user metadata** stores the Stripe customer ID — no DB required for billing in this phase
+- **Middleware** chain: Clerk auth check → active Stripe subscription check → allow or redirect
 
-18. **Add Rate Limiting** (`src/security/rate_limiting.rs`)
-	- Implement per-user rate limiting (e.g., 100 reviews/hour)
-	- Use token bucket algorithm or in-memory counter
-	- Return 429 status on limit exceeded
-	- Dependencies: Auth from Step 17
+### Steps
 
-19. **Implement Code Sandboxing & Isolation**
-	- Add file size limits and type validation
-	- Implement timeout for agent execution (e.g., 30s max)
-	- Consider temp storage for code during processing (clean up after)
-	- Dependencies: Phase 1 complete
+17. **Define Visual Identity & Design System**
+    - Color palette: Indigo primary (`#4F46E5`), Cyan accent (`#06B6D4`), neutral grays
+    - Font: Geist (Next.js default) — clean, technical, modern
+    - Logo: SVG lens/aperture motif (concentric rings with a focal point, evoking an optical lens)
+    - Slogan: to be finalised — candidates: *"See your code differently"* / *"Five lenses. One codebase."* / *"Code review from every angle."*
+    - Update `tailwind.config.ts` with design tokens
+    - Update `globals.css` with base styles and CSS variables
 
-20. **Add Security Logging & Audit Trail** (`src/security/audit.rs`)
-	- Log all authentication attempts (success/failure)
-	- Log review requests with user ID and code metadata
-	- Store audit logs (file-based initially, DB later)
-	- Dependencies: Logging from Phase 1
+18. **Build Landing Page** (`frontend/app/page.tsx`)
+    - Replace current app home; move review app to `/review`
+    - **Hero**: headline + slogan + primary CTA (Start free trial → `/sign-up`)
+    - **How it works**: 5 agents presented as "5 lenses" — each lens explained with icon + description
+    - **Why Lensora**: parallel execution, cross-agent consistency check, C++ specialisation
+    - **Pricing**: Starter vs Professional cards with trial callout, links to `/sign-up`
+    - **Footer**: minimal, links to sign in / sign up
+    - Fully responsive (mobile-first)
+    - Dependencies: Step 17 (visual identity)
 
-21. **Frontend Authentication UI** (`pages/auth/`, `pages/components/LoginForm.tsx`)
-	- Login/signup pages
-	- JWT token storage in secure httpOnly cookies
-	- Auth guard for protected pages
-	- Dependencies: Auth endpoints from Step 17
+19. **Integrate Clerk Auth** (`frontend/`)
+    - Install `@clerk/nextjs`
+    - Wrap root layout with `<ClerkProvider>`
+    - Configure `middleware.ts` using `clerkMiddleware()` — protect `/review` and `/account`
+    - Sign in page at `/sign-in` using Clerk's `<SignIn />` component
+    - Sign up page at `/sign-up` using Clerk's `<SignUp />` component
+    - User button in app header (shows avatar, sign out option)
+    - Dependencies: Step 18 (routing restructure)
+
+20. **Integrate Stripe Payments** (`frontend/app/api/stripe/`)
+    - Install `stripe` (server) and `@stripe/stripe-js` (client)
+    - Create Stripe products: **Starter** (rate-limited, e.g. 50 reviews/month) and **Professional** (unlimited)
+    - Configure 7-day free trial with credit card required on both tiers
+    - Checkout session endpoint (`/api/stripe/checkout`) — creates a Stripe Checkout session and redirects
+    - Webhook handler (`/api/stripe/webhook`) — handles `customer.subscription.created`, `updated`, `deleted`; stores Stripe customer ID and subscription status in Clerk user metadata
+    - Customer portal endpoint (`/api/stripe/portal`) — opens Stripe Customer Portal for self-service plan changes and cancellation
+    - Dependencies: Step 19 (need Clerk user ID to attach to Stripe customer)
+
+21. **Subscription Gate & Middleware** (`frontend/middleware.ts`)
+    - Extend Clerk middleware to also verify active Stripe subscription (read from Clerk metadata)
+    - Unauthenticated → redirect to `/sign-in`
+    - Authenticated but no active subscription → redirect to `/pricing`
+    - Active subscription (Starter or Professional) → allow through to `/review`
+    - Dependencies: Steps 19-20
+
+22. **Account & Billing Pages**
+    - Account page (`/account`): display user info (from Clerk), current plan, trial status
+    - Billing management: button that calls `/api/stripe/portal` to open Stripe Customer Portal
+    - Show "Upgrade to Professional" prompt for Starter users
+    - Dependencies: Steps 19-21
+
+23. **Starter Tier Rate Limiting** *(requires DB — deferred to Phase 5)*
+    - Track review count per user per billing period
+    - Return `429` with remaining quota info when Starter limit is exceeded
+    - Show usage counter in UI for Starter users
+    - **Dependency**: Phase 5 database integration; skip until DB is available
+
+**Parallel Execution**: Step 17 blocks nothing; Steps 18-19 can overlap; Step 20 depends on 19; Step 21 depends on 19-20; Step 22 depends on 19-21.
+
+---
+
+## **PHASE 3: Security Hardening**
+
+> Note: User authentication is fully handled by Clerk (Phase 2B). This phase focuses on backend security, sandboxing, and audit logging.
+
+### Steps
+
+24. **Backend Auth Middleware** (`src/api/mod.rs`)
+    - Verify Clerk session tokens on the `/api/review` endpoint
+    - Extract user ID from token and attach to request context for logging
+    - Return `401` for missing or invalid tokens
+    - Dependencies: Phase 2B complete
+
+25. **Add Rate Limiting** (`src/security/rate_limiting.rs`)
+    - Per-user rate limiting for Starter tier (requires DB from Phase 5 for persistence)
+    - In-memory counter acceptable for single-instance MVP
+    - Return `429` with `Retry-After` header on limit exceeded
+    - Dependencies: Auth middleware from Step 24
+
+26. **Implement Agent Execution Timeout** 
+    - Wrap each agent call with a `tokio::time::timeout` (e.g. 30s per agent)
+    - Return a structured error if any agent times out
+    - Prevent runaway LLM calls from blocking the server
+    - Dependencies: Phase 1 complete
+
+27. **Add Security Audit Logging** (`src/security/audit.rs`)
+    - Log all review requests with user ID, code size, language, and timestamp
+    - Log subscription tier at time of request
+    - Log all `401`/`429` responses with user ID and reason
+    - Dependencies: Auth middleware from Step 24
+
+28. **Frontend Security Hardening**
+    - Set `Content-Security-Policy` headers in `next.config.ts`
+    - Ensure all API routes validate Clerk session server-side
+    - Sanitize any rendered user content (code/explanation displayed back in UI)
+    - Dependencies: Phase 2B complete
 
 ---
 
 ## **PHASE 4: Testing, Deployment & Monitoring**
 
 ### Steps
-22. **Write Unit Tests** (`tests/agents/`, `tests/api/`)
-	- Test each agent with sample C++ code (good and bad examples)
-	- Test consistency agent conflict detection logic
-	- Test orchestrator's parallel + consolidation execution flow
-	- Test API validation and error handling
-	- Test authentication and rate limiting
-	- Dependencies: All implementation complete
 
-23. **Write Integration Tests**
-	- End-to-end tests for full review workflow
-	- Test frontend + backend integration
-	- Dependencies: All implementation complete
+29. **Write Unit Tests** (`tests/agents/`, `tests/api/`)
+    - Test each agent with sample C++ code (good and bad examples)
+    - Test consistency agent conflict detection logic
+    - Test orchestrator parallel + consolidation execution flow
+    - Test input validation and error handling
 
-24. **Set up CI/CD Pipeline** (`.github/workflows/`)
-	- Run tests on push/PR
-	- Lint Rust code (clippy) and format (rustfmt)
-	- Build Docker images
-	- Dependencies: Tests from Steps 22-23
+30. **Write Integration Tests**
+    - End-to-end tests for full review workflow
+    - Test Clerk auth middleware (valid token, expired token, missing token)
+    - Test Stripe webhook handler with mock events
 
-25. **Create Deployment Configuration**
-	- Docker setup (Dockerfile, docker-compose.yml)
-	- Environment configuration for prod/staging/dev
-	- Database migration scripts (for Phase 5)
-	- Dependencies: All implementation complete
+31. **Set up CI/CD Pipeline** (`.github/workflows/`)
+    - Run tests on push/PR
+    - Lint Rust (clippy) and format (rustfmt)
+    - Build and lint frontend (next build, eslint)
+    - Build Docker images
+
+32. **Create Deployment Configuration**
+    - `Dockerfile` for Rust backend
+    - `frontend/Dockerfile` for Next.js frontend
+    - `docker-compose.yml` for local full-stack dev
+    - Environment configuration for prod/staging/dev
+    - Document all required env vars (Clerk keys, Stripe keys, API key)
 
 ---
 
 ## **PHASE 5: Future Enhancements** (Post-MVP)
 
+- **Database Integration**: Persist reviews for user history, analytics, Starter usage tracking
+- **Starter Rate Limiting**: Implement Step 23 once DB is available
+- **GitHub OAuth**: Add GitHub login via Clerk OAuth (deferred from Phase 2B)
 - **Git Integration**: Detect diff, automatically seed "old code" vs "new code" distinction
 - **Multi-Language Support**: Add agents for JavaScript, Python, Rust, Go, Java
-- **Database Integration**: Persist reviews for user history, analytics
-- **Advanced Features**: Explain findings using LLM, autofix suggestions, team collaboration
+- **Advanced Features**: Autofix suggestions, team collaboration, review history
 - **Webhook Integration**: GitHub/GitLab webhooks for CI/CD integration
 - **Performance Optimization**: Caching, async processing queue, agent scaling
 
 ---
 
-## **Relevant Files** (to be created)
+## **Relevant Files**
 
-### Backend Structure
-- `src/main.rs` — Entry point, Axum router setup
-- `src/agents/mod.rs` — Agent framework and traits
-- `src/agents/style.rs` — Style agent implementation
-- `src/agents/functionality.rs` — Functionality agent implementation
-- `src/agents/bug.rs` — Bug agent implementation
-- `src/agents/security.rs` — Security agent implementation
-- `src/agents/consistency.rs` — Consistency (meta) agent implementation
-- `src/agents/orchestrator.rs` — Orchestrator for parallel execution
-- `src/api/mod.rs` — HTTP API endpoints
-- `src/security/validation.rs` — Input validation and sanitization
-- `src/security/rate_limiting.rs` — Rate limiting logic
-- `src/security/audit.rs` — Audit logging
-- `src/auth/mod.rs` — Authentication logic
-- `src/logging.rs` — Structured logging
-- `src/types.rs` — Shared types and data structures
-- `Cargo.toml` — Add dependencies: jwt, bcrypt, log, env_logger, tokio, serde_json
+### Backend (`src/`)
+- `src/main.rs` — Entry point, Axum router ✓
+- `src/agents/mod.rs` — Agent framework and types ✓
+- `src/agents/style.rs` — Style agent ✓
+- `src/agents/functionality.rs` — Functionality agent ✓
+- `src/agents/bug.rs` — Bug agent ✓
+- `src/agents/security.rs` — Security agent ✓
+- `src/agents/consistency.rs` — Consistency agent ✓
+- `src/agents/orchestrator.rs` — Parallel orchestrator ✓
+- `src/agents/claude.rs` — Shared Claude API client ✓
+- `src/api/mod.rs` — HTTP API endpoints ✓
+- `src/security/validation.rs` — Input validation ✓
+- `src/security/rate_limiting.rs` — Rate limiting (Phase 3)
+- `src/security/audit.rs` — Audit logging (Phase 3)
+- `src/logging.rs` — Structured logging ✓
 
-### Frontend Structure
-- `pages/review/index.tsx` — Main review page
-- `pages/components/CodeSubmissionForm.tsx` — Form component
-- `pages/components/ReviewResults.tsx` — Results display
-- `pages/auth/login.tsx` — Login page
-- `pages/auth/signup.tsx` — Signup page
-- `pages/components/LoginForm.tsx` — Login form component
-- `pages/api/review.ts` — Backend proxy endpoint
-- `pages/api/auth/[...auth].ts` — Auth API wrapper
+### Frontend (`frontend/`)
+- `frontend/lib/types.ts` — TypeScript types ✓
+- `frontend/app/page.tsx` — Landing page (Phase 2B)
+- `frontend/app/review/page.tsx` — Review app (move from current page.tsx)
+- `frontend/app/sign-in/page.tsx` — Clerk sign in
+- `frontend/app/sign-up/page.tsx` — Clerk sign up
+- `frontend/app/pricing/page.tsx` — Pricing page
+- `frontend/app/account/page.tsx` — Account & billing
+- `frontend/app/api/review/route.ts` — Backend proxy ✓
+- `frontend/app/api/stripe/checkout/route.ts` — Stripe checkout
+- `frontend/app/api/stripe/webhook/route.ts` — Stripe webhooks
+- `frontend/app/api/stripe/portal/route.ts` — Stripe customer portal
+- `frontend/app/components/CodeSubmissionForm.tsx` ✓
+- `frontend/app/components/ReviewResults.tsx` ✓
+- `frontend/middleware.ts` — Clerk + subscription gate
 
 ### Configuration
-- `.env.example` — Example environment variables
-- `docker-compose.yml` — Local dev environment
-- `Dockerfile` — Production build
-- `.github/workflows/ci.yml` — CI/CD pipeline
+- `.env.example` — Backend env vars ✓
+- `frontend/.env.local.example` — Frontend env vars (Clerk, Stripe keys)
+- `docker-compose.yml` — Local full-stack dev (Phase 4)
+- `Dockerfile` — Backend production build (Phase 4)
+- `frontend/Dockerfile` — Frontend production build (Phase 4)
+- `.github/workflows/ci.yml` — CI/CD pipeline (Phase 4)
 
 ---
 
 ## **Verification Steps**
 
-### Phase 1 (Backend)
-1. **Unit Tests Pass**: Run `cargo test` — all agent tests pass with known C++ code samples
-2. **Agent Accuracy**: Manually verify each agent detects issues in sample C++ code (buffer overflow, bad naming, etc.)
-3. **API Endpoint Works**: POST to `/api/review` with test C++ code returns all 5 agent results
-4. **Input Validation**: Attempt oversized requests, invalid language, special characters — all rejected gracefully
-5. **Performance**: Single review completes in < 5 seconds
-6. **Logging**: Verify logs contain review requests and agent execution details
+### Phase 1 (Backend) ✓
+1. `cargo test` passes
+2. POST `/api/review` returns all 5 agent results
+3. Oversized / invalid requests rejected with 400
+4. Logs show agent execution times
 
-### Phase 2 (Frontend)
-7. **Form Submission**: Submit code + explanation from Next.js frontend -> backend processes -> results display
-8. **Results Display**: All 5 agent findings show in separate sections with clear formatting
-9. **Error Handling**: Test network error, timeout, server error scenarios -> user-friendly messages display
+### Phase 2 (Frontend) ✓
+5. Submit code → results display in 5 tabs
+6. Validation feedback shown in real time
+7. Network/server errors display user-friendly messages
 
-### Phase 3 (Security)
-10. **Authentication**: Signup/login flow works; JWT tokens issued and validated
-11. **Rate Limiting**: Exceed rate limit -> 429 response received
-12. **Code Input Sanitization**: Malicious code doesn't cause backend crashes or injections
-13. **Audit Logs**: Review all auth attempts and review requests logged with timestamps and user IDs
+### Phase 2B (Identity, Auth & Monetization)
+8. Landing page renders correctly on mobile and desktop
+9. Sign up → Stripe checkout → active subscription stored in Clerk metadata
+10. `/review` redirects to `/sign-in` when unauthenticated
+11. `/review` redirects to `/pricing` when authenticated but not subscribed
+12. Active subscriber can access `/review` and submit reviews
+13. Stripe Customer Portal opens from `/account` and subscription changes are reflected
 
-### Phase 4+ (Testing & Deployment)
-14. **Tests Pass**: All unit and integration tests pass; code coverage > 70%
-15. **CI/CD Pipeline**: Push to main branch triggers tests, builds, and deploys successfully
-16. **Docker Build**: `docker-compose up` starts backend and frontend locally without errors
+### Phase 3 (Security Hardening)
+14. `/api/review` returns `401` with missing or invalid Clerk token
+15. Agent timeout returns structured error after 30s
+16. Audit logs capture user ID and subscription tier on every review request
+
+### Phase 4 (Testing & Deployment)
+17. All unit and integration tests pass; coverage > 70%
+18. CI/CD pipeline triggers on push and passes
+19. `docker-compose up` starts full stack locally without errors
 
 ---
 
 ## **Key Architecture Decisions**
 
-1. **Agents as Internal Rust Functions** (not microservices) — simpler deployment, MVP focused, lower infrastructure overhead. Can refactor to microservices in Phase 5.
+1. **Agents as LLM-powered Rust functions** — all 5 agents call the Claude API; Consistency agent receives all 4 prior outputs and resolves conflicts.
 
-2. **Stateless MVP** — No database; reviews computed on-the-fly. Phase 5 adds persistence.
+2. **Stateless backend MVP** — no database; reviews computed on-the-fly. Phase 5 adds persistence.
 
-3. **Parallel + Meta Execution** — Style, Functionality, Bug, and Security agents run concurrently (Tokio tasks), then the Consistency agent evaluates conflicts across their outputs.
+3. **Parallel + Meta Execution** — Style, Functionality, Bug, and Security agents run concurrently (Tokio `try_join!`), then the Consistency agent evaluates conflicts.
 
-4. **Security-First Architecture** — Authentication, input validation, sandboxing, and audit logging from the start, not bolt-on later.
+4. **Clerk for auth** — managed solution handles user storage, sessions, and JWTs. No custom auth code in the backend for MVP; backend validates Clerk tokens in Phase 3.
 
-5. **C++ Only MVP** — Narrower scope for quality; multi-language support in Phase 5.
+5. **Stripe for payments** — Starter (rate-limited) and Professional (unlimited) tiers. 7-day trial with CC required. Stripe customer ID stored in Clerk user metadata — no DB needed for billing in MVP.
 
-6. **JWT + Stateless Auth** — Scalable, doesn't require session database; works well with REST API.
+6. **Next.js as API proxy** — backend URL never exposed to the browser; all frontend-to-backend calls go through Next.js API routes.
 
-7. **Direct Code Upload** (not Git integration in MVP) — simpler UX & backend. Git integration Phase 2 for "diff detection".
+7. **Ocular / lens visual identity** — indigo + cyan palette, aperture SVG logo, minimal clean aesthetic. Selling point: multiple specialized agents = multiple lenses on your code.
+
+8. **C++ only MVP** — narrower scope for quality; multi-language support in Phase 5.
 
 ---
 
 ## **Critical Dependencies**
 
 | Dependency | Why Critical |
-|-----------|-------------|
-| Agent framework design (Step 1) | Blocks all agent implementations (Steps 2-6) |
-| Agent implementations (Steps 2-6) | Blocks orchestrator (Step 7) |
-| Orchestrator (Step 7) | Blocks API layer (Step 8) |
-| Input validation (Step 9) | Must be done early to avoid security debt |
-| Phase 1 completion | Blocks frontend testing (Phase 2) |
-| Auth implementation (Step 17) | Blocks rate limiting hardening (Step 18) |
+|---|---|
+| Phase 1 complete | Backend must be running for frontend integration |
+| Clerk integration (Step 19) | Blocks subscription gate (Step 21) and Stripe customer creation (Step 20) |
+| Stripe webhooks (Step 20) | Must be live before subscription gate is tested end-to-end |
+| Middleware (Step 21) | Blocks protected routes from being testable |
+| DB (Phase 5) | Blocks Starter rate limiting (Step 23) and review history |
 
 ---
 
 ## **Non-Blocking Parallelism**
 
-- Frontend (Phase 2) can start in parallel with backend once API contract is defined (Step 8)
-- Logging (Step 10) can be added anytime after Phase 1 foundation
-- Tests (Phase 4) can begin after each agent is implemented
+- Visual identity (Step 17) can be defined independently of all other work
+- Landing page (Step 18) can be built before Clerk/Stripe are wired in, using static CTAs
+- Clerk and Stripe setup (Steps 19-20) can be done in parallel once routing is established
+- Phase 3 security hardening can begin after Phase 2B auth is live

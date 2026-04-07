@@ -1,3 +1,4 @@
+use tokio::time::timeout;
 use tracing::info;
 
 use super::{
@@ -9,13 +10,27 @@ use super::{
     style::StyleAgent,
 };
 
-/// Times a single agent future and logs its elapsed duration.
+const AGENT_TIMEOUT_SECS: u64 = 30;
+
+/// Times a single agent future, enforces a timeout, and logs elapsed duration.
 async fn timed<T>(
     name: &'static str,
     fut: impl std::future::Future<Output = Result<T, String>>,
 ) -> Result<T, String> {
     let start = std::time::Instant::now();
-    let result = fut.await;
+
+    let result = timeout(
+        std::time::Duration::from_secs(AGENT_TIMEOUT_SECS),
+        fut,
+    )
+    .await
+    .unwrap_or_else(|_| {
+        Err(format!(
+            "agent '{}' timed out after {}s",
+            name, AGENT_TIMEOUT_SECS
+        ))
+    });
+
     let elapsed_ms = start.elapsed().as_millis() as u64;
 
     match &result {
@@ -58,14 +73,11 @@ pub async fn run(api_key: &str, input: ReviewInput) -> Result<ReviewResult, Stri
     info!("starting consistency review");
 
     // Run the Consistency agent after all 4 have completed.
-    let consistency_start = std::time::Instant::now();
-    let consistency = ConsistencyAgent::new(api_key.to_string())
-        .run(&all_reviews)
-        .await?;
-    info!(
-        elapsed_ms = consistency_start.elapsed().as_millis() as u64,
-        "consistency agent completed"
-    );
+    let consistency = timed(
+        "consistency",
+        ConsistencyAgent::new(api_key.to_string()).run(&all_reviews),
+    )
+    .await?;
 
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

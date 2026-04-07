@@ -3,7 +3,9 @@
     "allow": [
       "Bash(cargo build:*)",
       "Bash(npx create-next-app@latest frontend --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --no-git)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(export PATH=\"$HOME/.nvm/versions/node/v24.14.1/bin:$PATH\")",
+      "Bash(npm run:*)"
     ]
   }
 }
